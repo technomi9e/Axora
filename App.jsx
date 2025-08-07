@@ -1,52 +1,61 @@
-import { useState } from "react";
+import React, { useState } from 'react';
+import './chat.css';
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
 
-  const handleSend = () => {
-    if (input.trim() === "") return;
+  const sendMessage = async () => {
+    if (!input.trim()) return;
 
-    const userMessage = { sender: "user", text: input };
-    const botMessage = {
-      sender: "bot",
-      text: "Typing...",
-    };
+    const newMessage = { sender: 'user', text: input };
+    setMessages([...messages, newMessage]);
+    setInput('');
 
-    setMessages((prev) => [...prev, userMessage, botMessage]);
-    setInput("");
-
-    setTimeout(() => {
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        newMessages[newMessages.length - 1] = {
-          sender: "bot",
-          text: "Hello! This is a ChatGPT-style response.",
-        };
-        return newMessages;
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer YOUR_API_KEY_HERE'
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: input }]
+        })
       });
-    }, 1000);
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || "Error: No reply";
+
+      setMessages(prev => [...prev, { sender: 'bot', text: reply }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { sender: 'bot', text: 'Error fetching response' }]);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') sendMessage();
   };
 
   return (
-    <div className="app">
-      <h1>Axora AI</h1>
+    <div className="chat-container">
       <div className="chat-box">
         {messages.map((msg, i) => (
-          <div key={i} className={`message ${msg.sender}`}>
+          <div key={i} className={msg.sender === 'user' ? 'user-msg' : 'bot-msg'}>
             {msg.text}
           </div>
         ))}
       </div>
-      <div className="input-box">
+      <div className="input-container">
         <input
           type="text"
-          placeholder="Ask something..."
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type your message..."
         />
-        <button onClick={handleSend}>Send</button>
+        <button onClick={sendMessage}>Send</button>
       </div>
     </div>
   );
